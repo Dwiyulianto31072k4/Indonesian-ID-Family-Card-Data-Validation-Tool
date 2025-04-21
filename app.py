@@ -97,16 +97,6 @@ def clean_data(raw_df, kota_indonesia):
 
     return messy_df, clean_df
 
-def create_download_link(df, filename, text):
-    """Generate a link to download the DataFrame as an Excel file"""
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
-    
-    b64 = base64.b64encode(output.getvalue()).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">{text}</a>'
-    return href
-
 def generate_summary_excel(messy_df, clean_df, total_data):
     """Generate Excel with summary and both datasets"""
     output = io.BytesIO()
@@ -285,79 +275,79 @@ if uploaded_excel is not None:
             
             # Show stats
             total_data = len(df_req)
-            clean_count = len(clean_df)
-            messy_count = len(messy_df)
+            clean_data = len(clean_df)
+            messy_data = len(messy_df)
             
             st.success(f"Processing complete in {processing_time:.2f} seconds!")
             
-            # Display statistics
-            st.header("Validation Results")
+            # Calculate statistics for summary
+            num_rows, num_cols = messy_df.shape
+            len_param = num_cols - 1
             
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Records", total_data)
-            col2.metric("Clean Records", clean_count, f"{clean_count/total_data*100:.1f}%")
-            col3.metric("Messy Records", messy_count, f"{messy_count/total_data*100:.1f}%")
+            invalid_kk = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid KK_NO')])
+            invalid_nik = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid NIK')])
+            invalid_name = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid CUSTNAME')])
+            invalid_gender = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid JENIS_KELAMIN')])
+            invalid_places = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid TEMPAT_LAHIR')])
+            invalid_date = len(messy_df[messy_df['Check_Desc'].str.contains('Invalid TANGGAL_LAHIR')])
             
-            # Error Type Analysis
-            st.subheader("Error Analysis")
-            error_stats = {
-                "Invalid KK Numbers": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid KK_NO')]),
-                "Invalid NIK Numbers": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid NIK')]),
-                "Invalid Names": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid CUSTNAME')]),
-                "Invalid Gender": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid JENIS_KELAMIN')]),
-                "Invalid Birthplaces": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid TEMPAT_LAHIR')]),
-                "Invalid Birth Dates": len(messy_df[messy_df['Check_Desc'].str.contains('Invalid TANGGAL_LAHIR')])
-            }
+            total_invalid = len(messy_df) * len_param
+            messy_invalid = invalid_kk + invalid_nik + invalid_name + invalid_gender + invalid_places + invalid_date
+            clean_invalid = total_invalid - messy_invalid
             
-            # Create a bar chart
-            error_df = pd.DataFrame({'Error Type': list(error_stats.keys()), 'Count': list(error_stats.values())})
-            st.bar_chart(error_df.set_index('Error Type'))
-            
-            # Data previews
-            tab1, tab2 = st.tabs(["Clean Data", "Messy Data"])
-            
-            with tab1:
-                st.dataframe(clean_df)
-                
-            with tab2:
-                st.dataframe(messy_df)
+            # Display exact format as requested
+            st.text("")
+            st.markdown("```")
+            st.markdown("SUMMARY INFO")
+            st.markdown("------------------------------")
+            st.markdown(f"Total Data: {total_data}")
+            st.markdown(f"Total Data %: 100.0")
+            st.markdown(f"Messy Data: {messy_data}")
+            st.markdown(f"Messy Data %: {round(messy_data/total_data*100, 2)}")
+            st.markdown(f"Clean Data: {clean_data}")
+            st.markdown(f"Clean Data %: {round(clean_data/total_data*100, 2)}")
+            st.markdown("------------------------------")
+            st.markdown("INVALID INFO")
+            st.markdown("------------------------------")
+            st.markdown(f"Invalid Parameter: {total_invalid}")
+            st.markdown(f"Invalid Parameter %: 100.0")
+            st.markdown(f"Clean Parameter: {clean_invalid}")
+            st.markdown(f"Clean Parameter %: {round(clean_invalid/total_invalid*100, 2)}")
+            st.markdown(f"Messy Parameter: {messy_invalid}")
+            st.markdown(f"Messy Parameter %: {round(messy_invalid/total_invalid*100, 2)}")
+            st.markdown(f"Invalid KK: {invalid_kk}")
+            st.markdown(f"Invalid KK %: {round(invalid_kk/total_invalid*100, 2)}")
+            st.markdown(f"Invalid NIK: {invalid_nik}")
+            st.markdown(f"Invalid NIK %: {round(invalid_nik/total_invalid*100, 2)}")
+            st.markdown(f"Invalid Name: {invalid_name}")
+            st.markdown(f"Invalid Name %: {round(invalid_name/total_invalid*100, 2)}")
+            st.markdown(f"Invalid Gender: {invalid_gender}")
+            st.markdown(f"Invalid Gender %: {round(invalid_gender/total_invalid*100, 2)}")
+            st.markdown(f"Invalid Places: {invalid_places}")
+            st.markdown(f"Invalid Places %: {round(invalid_places/total_invalid*100, 2)}")
+            st.markdown(f"Invalid Date: {invalid_date}")
+            st.markdown(f"Invalid Date %: {round(invalid_date/total_invalid*100, 2)}")
+            st.markdown("------------------------------")
+            st.markdown("```")
             
             # Download buttons
             st.header("Download Results")
-            
-            # Generate Excel with all data
             excel_data = generate_summary_excel(messy_df, clean_df, total_data)
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.download_button(
-                    label="Download Full Report (Excel)",
-                    data=excel_data,
-                    file_name="data_validation_results.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            
-            with col2:
-                st.download_button(
-                    label="Download Clean Data (CSV)",
-                    data=clean_df.to_csv(index=False),
-                    file_name="clean_data.csv",
-                    mime="text/csv"
-                )
+            st.download_button(
+                label="Download Full Report (Excel)",
+                data=excel_data,
+                file_name="data_validation_results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
                 
     except Exception as e:
         st.error(f"An error occurred during processing: {str(e)}")
         st.exception(e)
 else:
     # Display instructions when no file is uploaded
-    st.header("How to Use This Tool")
+    st.info("Please upload an Excel file to begin validation.")
     st.markdown("""
-    1. Upload your Excel file containing ID and family card data
-    2. Optionally upload a custom city list for birthplace validation
-    3. View validation results and statistics
-    4. Download clean data and validation reports
-    
     ### Required Excel Column Headers
     Your Excel file should contain these columns:
     - `KK_NO` (Family Card Number)
@@ -366,14 +356,4 @@ else:
     - `JENIS_KELAMIN` (Gender)
     - `TANGGAL_LAHIR` (Date of Birth)
     - `TEMPAT_LAHIR` (Place of Birth)
-    
-    ### Validation Rules
-    - KK_NO: 16 digits, not ending with '0000'
-    - NIK: 16 digits, not ending with '0000'
-    - CUSTNAME: No digits allowed
-    - JENIS_KELAMIN: Must be 'LAKI-LAKI', 'LAKI - LAKI', 'LAKI LAKI', or 'PEREMPUAN'
-    - TEMPAT_LAHIR: Must match a city in the reference list
-    - TANGGAL_LAHIR: Valid date in DD/MM/YYYY format, not in the future
     """)
-    
-    st.info("Please upload an Excel file to begin validation.")
