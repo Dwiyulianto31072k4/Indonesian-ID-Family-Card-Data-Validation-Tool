@@ -10,17 +10,14 @@ import io
 import base64
 
 st.set_page_config(
-    page_title="Indonesian ID Data Validation Tool",
+    page_title="KK & NIK Data Validation Tool",
     page_icon="📋",
     layout="wide"
 )
 
-st.title("Indonesian ID & Family Card Data Validation Tool")
+st.title("KK & NIK Data Validation Tool")
 
 # Define helper functions
-def is_valid_tempat_lahir(tempat_lahir, kota_indonesia):
-    return tempat_lahir.upper() in kota_indonesia
-
 def clean_data(raw_df, kota_indonesia):
     # Define criteria for clean data
     def is_valid_kk_no(kk_no):
@@ -71,10 +68,10 @@ def clean_data(raw_df, kota_indonesia):
 
     # Identify issues in the data
     raw_df.loc[~valid_kk_no, 'Check_Desc'] += raw_df.loc[~valid_kk_no, 'KK_NO'].apply(
-        lambda x: f'Invalid KK_NO (length: {len(str(x))}, digits only: {str(x).isdigit()}, last_digits: {str(x)[-4:]}); '
+        lambda x: f'Invalid KK_NO (length: {len(str(x))}, digits only: {str(x).isdigit()}, last_digits: {str(x)[-4:] if len(str(x)) >= 4 else str(x)}); '
     )
     raw_df.loc[~valid_nik, 'Check_Desc'] += raw_df.loc[~valid_nik, 'NIK'].apply(
-        lambda x: f'Invalid NIK (length: {len(str(x))}, digits only: {str(x).isdigit()}, last_digits: {str(x)[-4:]}); '
+        lambda x: f'Invalid NIK (length: {len(str(x))}, digits only: {str(x).isdigit()}, last_digits: {str(x)[-4:] if len(str(x)) >= 4 else str(x)}); '
     )
     raw_df.loc[~valid_custname, 'Check_Desc'] += raw_df.loc[~valid_custname, 'CUSTNAME'].apply(
         lambda x: f'Invalid CUSTNAME (contains special characters or digits: {x}); '
@@ -140,82 +137,43 @@ with st.sidebar:
     uploaded_excel = st.file_uploader("Upload your Excel file", type=['xlsx'])
     
     st.markdown("---")
-    st.header("Upload City List (Optional)")
-    uploaded_city_list = st.file_uploader("Upload a custom city list (CSV/TXT)", type=['csv', 'txt'])
-    
-    use_default_cities = st.checkbox("Use Default City List", value=True)
+    st.header("Upload City List (Required)")
+    uploaded_city_list = st.file_uploader("Upload a city list (CSV/TXT)", type=['csv', 'txt'])
     
     st.markdown("---")
     st.subheader("About This Tool")
     st.info("""
     This tool validates Indonesian ID Card (NIK) and Family Card (KK) data.
     
-    It checks:
-    - KK_NO (16 digits, not ending with '0000')
-    - NIK (16 digits, not ending with '0000')
-    - Names (no digits)
-    - Gender (standard formats)
-    - Birth place (against city database)
-    - Birth date (valid format and not future date)
+    Validation Rules:
+    - KK_NO: 16 digits, not ending with '0000'
+    - NIK: 16 digits, not ending with '0000'
+    - Names: No digits allowed
+    - Gender: Standard formats
+    - Birth place: Against city database
+    - Birth date: Valid format and not future date
     """)
 
 # Main page content
-if uploaded_excel is not None:
+if uploaded_excel is not None and uploaded_city_list is not None:
     start_time = time.time()
     
-    # Load city reference data
-    if uploaded_city_list and use_default_cities:
-        st.warning("Both custom and default city lists selected. Using both.")
-    
-    # Default city list from your original code
-    new_kota = [
-    'ACEH BARAT', 'ACEH BESAR', 'ACEH TAMIANG', 'ACEH TIMUR', 'ACEH', 'AIR DINGIN ', 'AIR MOLEK',
-    'AIR NANINGAN', 'AKEDAGA', 'AMBARAWA', 'AMBON', 'AMPENAN', 'ASAHAN', 'BAA ROTE', 'BAGOR',
-    'BALAM', 'BALI', 'BALIGE', 'BALIKPAPAN', 'BALUNGAN', 'BANDA ACEH', 'BANDAR BETSY', 'BANDAR DALAM',
-    'BANDAR LAMPUNG', 'BANDUNG BARAT', 'BANDUNG', 'BANGGAI', 'BANGKA BARAT', 'BANGKA', 'BANGKALAN',
-    'BANJAR', 'BANJARMASIN', 'BANJARNEGARA', 'BANJARSARI', 'BANTAL', 'BANTARWARU', 'BANTEN', 'BANTUL',
-    'BANYUASIN', 'BANYUMAS', 'BANYUWANGI', 'BARITO KUALA', 'BATAM', 'BATANG HARI', 'BATANG', 'BATOLA',
-    'BATU KAMBING', 'BATURAJA', 'BATURSARI', 'BAYANG', 'BAYUNG LENCIR INDAH', 'BEKASI', 'BELAWAN ',
-    'BELITANG', 'BELOPA', 'BENGKALIS', 'BENGKULU UTARA', 'BENGKULU', 'BERAU', 'BERGAS', 'BERINGIN JAYA',
-    'BIAK', 'BIMA', 'BINJAI', 'BLITAR', 'BLORA', 'BOBOTSARI', 'BOGOR', 'BOJONEGORO', 'BONDOWOSO',
-    'BOYOLALI', 'BREBES', 'BUAYAN', 'BUKABU', 'BUKIT TINGGI', 'BUMIAYU', 'BUNTU MAULI', 'CAHAYA NEGERI',
-    'CAWAS', 'CENGAL', 'CEPU', 'CIAMIS', 'CIANJUR', 'CIKARANG', 'CILACAP', 'CILEGON', 'CIMAHI',
-    'CIMANGGU', 'CIPUTAT', 'CIRACAP', 'CIREBON', 'CISAMPANG', 'DELI SERDANG', 'DEMAK', 'DENPASAR',
-    'DEPOK', 'DONGGALA', 'DUKUH', 'DUMAI', 'DURI', 'ENDE', 'GADING', 'GARUT', 'GEGARANG', 'GEMARANG',
-    'GENDING', 'GETASAN', 'GIRIWINANGUN', 'GOMBONG', 'GONDANG', 'GORONTALO', 'GRESIK', 'GROBOGAN',
-    'GUNUNG KIDUL', 'GUNUNGKIDUL', 'GUNUNGPATI', 'GUNUNGSITOLI', 'HILIMBOWO', 'HILIWAEBU',
-    'HILIZOROILAWA', 'HORISAN RANGGITGIT', 'HUTAMULA', 'INDRAGIRI HILIR', 'INDRAGIRI HULU',
-    'INDRAGIRIHULU', 'INDRAMAYU', 'INDRAPURA', 'JABUNG', 'JAKARTA BARAT', 'JAKARTA PUSAT',
-    'JAKARTA SELATAN', 'JAKARTA TIMUR', 'JAKARTA UTARA', 'JAKARTA', 'JAMBI', 'JATENG', 'JAWA TENGAH',
-    'JAYAPURA', 'JEMBER', 'JEPARA', 'JOMBANG'
-    # Truncated for brevity - you should include all cities from your original list
-    ]
-    
-    # If using default city list
+    # Process city list
     kota_indonesia = []
-    if use_default_cities:
-        kota_indonesia = new_kota
-    
-    # If a custom city list is uploaded
-    if uploaded_city_list:
-        try:
-            city_df = pd.read_csv(uploaded_city_list, delimiter=',')
-            if 'CITY_DESC' in city_df.columns:
-                # Process same as original code
-                city_df['CITY_DESC'] = city_df['CITY_DESC'].str.replace('Kota ', '').str.replace('Kabupaten ', '').str.replace('Kab ', '')
-                city_df['CITY_DESC'] = city_df['CITY_DESC'].str.upper()
-                custom_cities = city_df['CITY_DESC'].tolist()
-            else:
-                # Assume simple list format
-                custom_cities = [city.strip().upper() for city in city_df.iloc[:, 0].tolist()]
-            
-            kota_indonesia.extend(custom_cities)
-            st.sidebar.success(f"Added {len(custom_cities)} cities from uploaded list")
-        except Exception as e:
-            st.sidebar.error(f"Error reading city list: {e}")
-    
-    if not kota_indonesia:
-        st.error("No city list is available. Please use the default city list or upload a custom one.")
+    try:
+        city_df = pd.read_csv(uploaded_city_list, delimiter=',')
+        if 'CITY_DESC' in city_df.columns:
+            # Process same as original code
+            city_df['CITY_DESC'] = city_df['CITY_DESC'].str.replace('Kota ', '').str.replace('Kabupaten ', '').str.replace('Kab ', '')
+            city_df['CITY_DESC'] = city_df['CITY_DESC'].str.upper()
+            kota_indonesia = city_df['CITY_DESC'].tolist()
+        else:
+            # Assume simple list format
+            kota_indonesia = [city.strip().upper() for city in city_df.iloc[:, 0].tolist()]
+        
+        st.sidebar.success(f"Loaded {len(kota_indonesia)} cities from uploaded list")
+    except Exception as e:
+        st.sidebar.error(f"Error reading city list: {e}")
         st.stop()
     
     # Process the Excel file
@@ -227,15 +185,15 @@ if uploaded_excel is not None:
             
             # Read Excel workbook
             try:
-                with pd.ExcelFile(excel_file) as xls:
-                    sheet_names = xls.sheet_names
-                    
-                    for sheet in sheet_names:
-                        try:
-                            df = pd.read_excel(xls, sheet_name=sheet, dtype={'KK_NO_GROSS':object, 'KK_NO':object, 'NIK_GROSS':object, 'NIK':object})
-                            df_full = pd.concat([df_full, df], ignore_index=True)
-                        except Exception as e:
-                            st.warning(f"Error reading sheet {sheet}: {e}")
+                workbook = openpyxl.load_workbook(excel_file)
+                sheet_names = workbook.sheetnames
+                
+                for sheet in sheet_names:
+                    try:
+                        df = pd.read_excel(excel_file, sheet_name=sheet, dtype={'KK_NO_GROSS':object, 'KK_NO':object, 'NIK_GROSS':object, 'NIK':object})
+                        df_full = pd.concat([df_full, df], ignore_index=True)
+                    except Exception as e:
+                        st.warning(f"Error reading sheet {sheet}: {e}")
             except Exception as e:
                 st.error(f"Error opening Excel file: {e}")
                 st.stop()
@@ -273,14 +231,11 @@ if uploaded_excel is not None:
             end_time = time.time()
             processing_time = end_time - start_time
             
-            # Show stats
+            # Calculate statistics
             total_data = len(df_req)
-            clean_data = len(clean_df)
             messy_data = len(messy_df)
+            clean_data = len(clean_df)
             
-            st.success(f"Processing complete in {processing_time:.2f} seconds!")
-            
-            # Calculate statistics for summary
             num_rows, num_cols = messy_df.shape
             len_param = num_cols - 1
             
@@ -295,42 +250,46 @@ if uploaded_excel is not None:
             messy_invalid = invalid_kk + invalid_nik + invalid_name + invalid_gender + invalid_places + invalid_date
             clean_invalid = total_invalid - messy_invalid
             
-            # Display exact format as requested
-            st.text("")
-            st.markdown("```")
-            st.markdown("SUMMARY INFO")
-            st.markdown("------------------------------")
-            st.markdown(f"Total Data: {total_data}")
-            st.markdown(f"Total Data %: 100.0")
-            st.markdown(f"Messy Data: {messy_data}")
-            st.markdown(f"Messy Data %: {round(messy_data/total_data*100, 2)}")
-            st.markdown(f"Clean Data: {clean_data}")
-            st.markdown(f"Clean Data %: {round(clean_data/total_data*100, 2)}")
-            st.markdown("------------------------------")
-            st.markdown("INVALID INFO")
-            st.markdown("------------------------------")
-            st.markdown(f"Invalid Parameter: {total_invalid}")
-            st.markdown(f"Invalid Parameter %: 100.0")
-            st.markdown(f"Clean Parameter: {clean_invalid}")
-            st.markdown(f"Clean Parameter %: {round(clean_invalid/total_invalid*100, 2)}")
-            st.markdown(f"Messy Parameter: {messy_invalid}")
-            st.markdown(f"Messy Parameter %: {round(messy_invalid/total_invalid*100, 2)}")
-            st.markdown(f"Invalid KK: {invalid_kk}")
-            st.markdown(f"Invalid KK %: {round(invalid_kk/total_invalid*100, 2)}")
-            st.markdown(f"Invalid NIK: {invalid_nik}")
-            st.markdown(f"Invalid NIK %: {round(invalid_nik/total_invalid*100, 2)}")
-            st.markdown(f"Invalid Name: {invalid_name}")
-            st.markdown(f"Invalid Name %: {round(invalid_name/total_invalid*100, 2)}")
-            st.markdown(f"Invalid Gender: {invalid_gender}")
-            st.markdown(f"Invalid Gender %: {round(invalid_gender/total_invalid*100, 2)}")
-            st.markdown(f"Invalid Places: {invalid_places}")
-            st.markdown(f"Invalid Places %: {round(invalid_places/total_invalid*100, 2)}")
-            st.markdown(f"Invalid Date: {invalid_date}")
-            st.markdown(f"Invalid Date %: {round(invalid_date/total_invalid*100, 2)}")
-            st.markdown("------------------------------")
-            st.markdown("```")
+            # Display exactly the same format as in the Jupyter notebook
+            st.success(f"Processing complete in {processing_time:.2f} seconds")
             
-            # Download buttons
+            # Create monospace text block with exact same output format
+            output_text = f"""------------------------------
+       SUMMARY INFO
+------------------------------
+Total Data: {total_data}
+Total Data %: 100.0
+Messy Data: {messy_data}
+Messy Data %: {round(messy_data/total_data*100, 2)}
+Clean Data: {clean_data}
+Clean Data %: {round(clean_data/total_data*100, 2)}
+------------------------------
+       INVALID INFO
+------------------------------
+Invalid Parameter: {total_invalid}
+Invalid Parameter %: 100.0
+Clean Parameter: {clean_invalid}
+Clean Parameter %: {round(clean_invalid/total_invalid*100, 2)}
+Messy Parameter: {messy_invalid}
+Messy Parameter %: {round(messy_invalid/total_invalid*100, 2)}
+Invalid KK: {invalid_kk}
+Invalid KK %: {round(invalid_kk/total_invalid*100, 2)}
+Invalid NIK: {invalid_nik}
+Invalid NIK %: {round(invalid_nik/total_invalid*100, 2)}
+Invalid Name: {invalid_name}
+Invalid Name %: {round(invalid_name/total_invalid*100, 2)}
+Invalid Gender: {invalid_gender}
+Invalid Gender %: {round(invalid_gender/total_invalid*100, 2)}
+Invalid Places: {invalid_places}
+Invalid Places %: {round(invalid_places/total_invalid*100, 2)}
+Invalid Date: {invalid_date}
+Invalid Date %: {round(invalid_date/total_invalid*100, 2)}
+------------------------------
+"""
+            # Use pre-formatted text block to maintain exact spacing
+            st.text(output_text)
+            
+            # Download button
             st.header("Download Results")
             excel_data = generate_summary_excel(messy_df, clean_df, total_data)
             
@@ -344,9 +303,13 @@ if uploaded_excel is not None:
     except Exception as e:
         st.error(f"An error occurred during processing: {str(e)}")
         st.exception(e)
+elif uploaded_excel is not None and uploaded_city_list is None:
+    st.warning("Please upload a city list file to continue.")
+elif uploaded_excel is None and uploaded_city_list is not None:
+    st.warning("Please upload an Excel file to continue.")
 else:
     # Display instructions when no file is uploaded
-    st.info("Please upload an Excel file to begin validation.")
+    st.info("Please upload an Excel file and a city list file to begin validation.")
     st.markdown("""
     ### Required Excel Column Headers
     Your Excel file should contain these columns:
@@ -356,4 +319,9 @@ else:
     - `JENIS_KELAMIN` (Gender)
     - `TANGGAL_LAHIR` (Date of Birth)
     - `TEMPAT_LAHIR` (Place of Birth)
+    
+    ### City List Format
+    Your city list file should be a CSV with either:
+    - A column named 'CITY_DESC' containing city names
+    - Or a simple list of city names in the first column
     """)
